@@ -1,0 +1,2 @@
+# Trent Barton Live Departures
+Trent Barton is a company which runs buses in the UK midlands. They have a "live bus departures" API for their website. This program uses this API in conjunction with windows 10 toast notifications to notify you easily when a bus is almost at your stop.
