@@ -20,6 +20,7 @@ class Bus:
         self.name = self.service.name
         self.position = (data['longitude'], data['latitude'])
         self.bus_stop = bus_stop
+        self.identifier = self.data['uniqueIdentifier']
 
     @property
     def due(self):

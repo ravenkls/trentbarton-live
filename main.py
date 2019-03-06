@@ -1,12 +1,15 @@
+from PyQt5 import QtWidgets, QtCore, QtGui
+from gui import TrentBartonSystemTray
 import trentbarton
-from win10toast import ToastNotifier
-import time
+import sys
+
 
 if __name__ == '__main__':
-    toaster = ToastNotifier()
+    app = QtWidgets.QApplication(sys.argv)
 
-    stop = trentbarton.BusStop('Chain Lane', 262)
-    live_times = stop.get_live_times()
-    bus = live_times[0]
+    bus_stop = trentbarton.BusStop('Chain Lane', 262)
+    system_tray = TrentBartonSystemTray(bus_stop)
 
-    toaster.show_toast(stop.name, f'{bus} is {bus.due} minutes away', icon_path=bus.icon, duration=7)
+    sys.exit(app.exec_())
+
+
