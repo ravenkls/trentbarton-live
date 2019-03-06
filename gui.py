@@ -16,9 +16,13 @@ class TrentBartonThread(QtCore.QThread):
         self.bus_identifier = bus.identifier
         self.bus_stop = bus.bus_stop
         self.remind_at = remind_at
+        self.running = True
+
+    def stop(self):
+        self.running = False
 
     def run(self):
-        while True:
+        while self.running:
             live_times = self.bus_stop.get_live_times()
             if live_times:
                 for bus in live_times:
@@ -46,9 +50,11 @@ class TrentBartonThread(QtCore.QThread):
 class BusStopMenu(QtWidgets.QMenu):
 
     begin_tracking = QtCore.pyqtSignal(trentbarton.Bus)
+    stop_tracking = QtCore.pyqtSignal()
 
     def __init__(self, bus_stop):
         super().__init__()
+        self.currently_tracking = None
         self.bus_stop = bus_stop
         self.aboutToShow.connect(self.update_buses)
 
@@ -57,34 +63,62 @@ class BusStopMenu(QtWidgets.QMenu):
         self.title_widget()
         live_times = self.bus_stop.get_live_times()
         for bus in live_times:
-            self.addAction(QtGui.QIcon(str(bus.icon)), f'{bus.name} - {bus.due} minutes',
-                           lambda: self.begin_tracking.emit(bus))
+            if bus.identifier == self.currently_tracking:
+                self.addAction(QtGui.QIcon(str(bus.icon)), f'✓ {bus.name} - {bus.due} minutes ({bus.time})',
+                               self.untrack)
+            else:
+                self.addAction(QtGui.QIcon(str(bus.icon)), f'{bus.name} - {bus.due} minutes ({bus.time})',
+                               lambda: self.track(bus))
 
     def title_widget(self):
         widget = QtWidgets.QWidgetAction(self)
         label = QtWidgets.QLabel(self.bus_stop.name)
         label.setAlignment(QtCore.Qt.AlignCenter)
-        label.setStyleSheet('font-weight: bold; padding: 0.2em;')
+        label.setStyleSheet('font-weight: bold;'
+                            'padding: 0.2em;'
+                            'background: #393939;'
+                            'color: #fff;'
+                            'margin-bottom: 0.2em;')
         widget.setDefaultWidget(label)
         self.addAction(widget)
+
+    def track(self, bus):
+        self.currently_tracking = bus.identifier
+        self.begin_tracking.emit(bus)
+
+    def untrack(self):
+        self.currently_tracking = None
+        self.stop_tracking.emit()
 
 class TrentBartonSystemTray(QtWidgets.QSystemTrayIcon):
     def __init__(self, bus_stop):
         super().__init__()
-        self.setIcon(QtGui.QIcon('trentbarton.png'))
         self.bus_stop = bus_stop
+        self.watcher = None
         self.menu = BusStopMenu(self.bus_stop)
         self.menu.begin_tracking.connect(self.start_watching)
+        self.menu.stop_tracking.connect(self.stop_watching)
         self.setContextMenu(self.menu)
+        self.reset()
+
+    def reset(self):
+        self.setIcon(QtGui.QIcon('systemtrayicon.png'))
         self.setToolTip(f'Not tracking any buses at the moment ({self.bus_stop})')
 
     def start_watching(self, bus):
         """Start watching and tracking a bus"""
+        if self.watcher and self.watcher.isRunning():
+            self.stop_watching()
         self.watcher = TrentBartonThread(bus)
         self.watcher.reminder.connect(self.notify)
         self.watcher.status.connect(self.setToolTip)
         self.watcher.bus_icon.connect(self.setIcon)
+        self.watcher.stop_tracking.connect(self.menu.untrack)
         self.watcher.start()
+
+    def stop_watching(self):
+        self.watcher.stop()
+        self.reset()
 
     def notify(self, bus):
         """Notify how close a bus is with toast notifications"""

@@ -2,6 +2,7 @@ from tempfile import gettempdir
 from pathlib import Path
 from io import BytesIO
 from PIL import Image
+import datetime
 import requests
 import re
 
@@ -26,6 +27,12 @@ class Bus:
     def due(self):
         """Returns the time until the bus is due in minutes"""
         return 0 if self.data['dueIn'] == 'due' else int(self.data['dueIn'][:-4])
+
+    @property
+    def time(self):
+        """Returns the expected time the bus will arrive at"""
+        time = datetime.datetime.now() + datetime.timedelta(minutes=self.due)
+        return time.strftime('%H:%M')
 
     @property
     def icon(self):
